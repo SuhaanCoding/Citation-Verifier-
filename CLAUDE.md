@@ -19,14 +19,14 @@ Why Multi-Agent? (Hackathon Framing)
 
 The Citation Verifier is a natural fit for multi-agent architecture:
 
-1. Parallel verification: Each API (CrossRef, Semantic Scholar, etc.) is an independent agent.
+1. Parallel verification: Each verification source is an independent agent.
    The supervisor broadcasts a citation to all verifiers simultaneously and aggregates results.
    This solves the "Waiting Room" concurrency problem by design.
 
 2. Modularity: Adding a new data source means adding a new agent — no changes to existing code.
    A new team member could build a PubMed verifier agent without touching anything else.
 
-3. Failure isolation: If the Semantic Scholar agent crashes, the other verifiers keep running.
+3. Failure isolation: If one verifier agent crashes, the other verifiers keep running.
    The supervisor collects whatever results come back.
 
 4. Observability: AGNTCY's IOA Observe SDK gives OTEL-based tracing across all agents — you can
@@ -202,19 +202,20 @@ pydantic>=2.0              # Data models for agent messages
 # Observability (optional)
 ioa-observe>=1.0           # AGNTCY OTEL-based tracing
 
-# Browser agent (optional)
-playwright>=1.40
+# Browser automation (required for verification)
+playwright>=1.40           # Browser automation for source verification
 
 Infrastructure requirements:
 - Python 3.12+
 - Docker + Docker Compose (for SLIM message bus)
 - An LLM provider API key (OpenAI, Anthropic, GROQ, or Azure — via LiteLLM)
 
-Free APIs (no key required):
-- CrossRef REST API — paper metadata by DOI, title search
-- Semantic Scholar API — paper abstracts, references, full metadata
-- Unpaywall API — find open-access PDF links (requires email, free)
-- OpenLibrary API — book metadata by ISBN/title
+Browser-Based Verification (no API keys required):
+- Verifier agents open URLs directly in the browser using Playwright
+- DOI URLs: Resolve to publisher pages, scrape title/abstract/metadata
+- Academic URLs: Scrape content from CrossRef, Semantic Scholar, OpenLibrary web pages
+- Book ISBNs: Search OpenLibrary web interface
+- Generic URLs: HTTP GET + BeautifulSoup content extraction
 
 ---
 AGNTCY Concepts Used
@@ -305,32 +306,31 @@ Test: Send a message to the parser agent and verify it returns structured citati
 Step 3: Verifier Agents (agents/verifiers/)
 
 Each verifier follows the same 4-file pattern. They all receive a Citation via A2A
-and return a VerificationResult.
+and return a VerificationResult. ALL VERIFIERS USE BROWSER-BASED SCRAPING (Playwright)
+instead of API calls. This runs in the user's browser via Spinup.
 
-3a. CrossRef verifier (agents/verifiers/crossref/)
-  - Query https://api.crossref.org/works/{doi} for DOI lookups
-  - Query https://api.crossref.org/works?query.bibliographic=... for title search
-  - Extract: title, authors, journal, year, abstract
-  - Rate limit: be polite, include mailto: in User-Agent
+3a. DOI verifier (agents/verifiers/doi/)
+  - Resolve DOI URL (https://doi.org/{doi}) to publisher page
+  - Scrape title, authors, abstract from the landing page
+  - Handle various publisher formats (Elsevier, Springer, Wiley, etc.)
+  - Return VerificationResult with found=True if content matches
 
-3b. Semantic Scholar verifier (agents/verifiers/semantic_scholar/)
-  - Query https://api.semanticscholar.org/graph/v1/paper/{doi_or_id}
-  - Get abstract, citation count, references, TL;DR
-  - Fallback title search via /paper/search?query=...
+3b. Academic Search verifier (agents/verifiers/academic/)
+  - Search for paper title on Google Scholar or Semantic Scholar web
+  - Scrape search results to verify paper exists
+  - Extract metadata: authors, year, citation count
+  - Handle captchas gracefully (return found=False with error)
 
-3c. Unpaywall verifier (agents/verifiers/unpaywall/)
-  - Query https://api.unpaywall.org/v2/{doi}?email=...
-  - Find open-access PDF/HTML URLs for papers behind paywalls
+3c. Book verifier (agents/verifiers/book/)
+  - Search ISBN on OpenLibrary web interface
+  - Scrape book details: title, authors, publisher, year
+  - Fallback: search by title if ISBN not found
 
-3d. OpenLibrary verifier (agents/verifiers/openlibrary/)
-  - Query https://openlibrary.org/api/books?bibkeys=ISBN:...
-  - Query https://openlibrary.org/search.json?title=...
-  - Extract: title, authors, publisher, year
-
-3e. Web URL verifier (agents/verifiers/web/)
+3d. URL verifier (agents/verifiers/url/)
   - HTTP GET the URL, check status code (200 = exists)
   - Extract page content with BeautifulSoup
   - Handle redirects, timeouts, 404s
+  - Extract relevant text for content matching
 
 Step 4: Supervisor Agent (agents/supervisor/)
 
@@ -423,10 +423,9 @@ Each agent service runs its own server.py. All connect to SLIM on the same netwo
 
 Step 8: Error Handling & Observability
 
-- Rate limiting: delays between API calls, respect CrossRef etiquette
-- Timeouts: 10s per API call, 30s per broadcast response window
-- Graceful degradation: if a verifier agent is down, supervisor uses partial results
-- Caching: verifier agents cache API responses locally
+- Browser timeouts: 15s per page load, graceful fallback on timeout
+- Playwright stealth: avoid bot detection on publisher sites
+- Graceful degradation: if a verifier agent fails, supervisor uses partial results
 - Observability: IOA Observe decorators on agent methods for OTEL tracing
 - Health checks: each agent exposes a health endpoint, docker-compose uses them
 
@@ -481,27 +480,25 @@ Goal: One working agent communicating over SLIM. Prove the pattern works.
 
 ............................................................................
 
-PHASE 2 — Verifier Agents (parallel work, Person B copies the pattern)
-Goal: All 5 verifiers running as independent agents.
+PHASE 2 — Verifier Agents (parallel work, browser-based scraping)
+Goal: All 4 verifiers running as independent agents using Playwright/browser.
 
   Person A:
-    - Build agents/verifiers/crossref/ (most complex API, DOI + bibliographic search)
-    - Build agents/verifiers/semantic_scholar/ (second API, careful error handling)
-    - Build agents/verifiers/unpaywall/ (DOI-dependent flow)
-    - Add all three to docker-compose.yaml
+    - Build agents/verifiers/doi/ (DOI resolution + publisher page scraping)
+    - Build agents/verifiers/academic/ (Academic search scraping)
+    - Add both to docker-compose.yaml
     - Write a broadcast test: send one citation to all available verifiers, print results
 
   Person B:
-    - Build agents/verifiers/openlibrary/ (simplest API — copy parser's 4-file structure,
-      replace the logic with OpenLibrary API calls. Person A pair-reviews.)
-    - Build agents/verifiers/web/ (HTTP GET + BeautifulSoup — Person A reviews error handling)
+    - Build agents/verifiers/book/ (OpenLibrary web scraping — copy parser's 4-file structure)
+    - Build agents/verifiers/url/ (HTTP GET + BeautifulSoup — simpler, good learning)
     - Add both to docker-compose.yaml
     - Test each verifier individually with known DOIs, ISBNs, URLs
     - Document what each verifier returns (helps with report template later)
 
   Checkpoint:
-    - docker compose up starts SLIM + all 5 verifier agents
-    - Person A's broadcast test sends a citation and gets responses from all 5
+    - docker compose up starts SLIM + all 4 verifier agents
+    - Person A's broadcast test sends a citation and gets responses from all 4
     - Person B has tested each verifier with real data
 
 ............................................................................
