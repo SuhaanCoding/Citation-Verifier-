@@ -1,0 +1,45 @@
+services:
+  slim:
+    image: ghcr.io/agntcy/slim:latest
+    command: /slim
+    ports:
+      - "46357:46357"
+    environment:
+      - SLIM_LOG_LEVEL=info
+    networks:
+      - citation-net
+
+  parser:
+    build:
+      context: .
+      dockerfile: Dockerfile.parser
+    ports:
+      - "8001:8001"
+    environment:
+      - PARSER_HOST=0.0.0.0
+      - PARSER_PORT=8001
+      - SLIM_URL=http://slim:46357
+    depends_on:
+      - slim
+    networks:
+      - citation-net
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_PORT=5000
+      - SLIM_URL=http://slim:46357
+      - PARSER_URL=http://parser:8001
+    depends_on:
+      - slim
+      - parser
+    networks:
+      - citation-net
+
+networks:
+  citation-net:
+    driver: bridge

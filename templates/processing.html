@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifying... | Citation Verifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body
+    class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen flex items-center justify-center">
+    <div class="container mx-auto px-4 py-12 max-w-2xl text-center">
+        <!-- Animated Logo -->
+        <div class="mb-8">
+            <div class="text-6xl mb-4 pulse">🔍</div>
+            <h1 class="text-3xl font-bold text-slate-100 mb-2">Verifying Citations</h1>
+            <p class="text-slate-400">Our agents are working in parallel to check your sources...</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 mb-8">
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-slate-400 mb-2">
+                    <span>Progress</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+                <div class="h-3 bg-slate-700 rounded-full overflow-hidden">
+                    <div id="progress-bar"
+                        class="h-full bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full transition-all duration-500"
+                        style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Status Message -->
+            <p id="status-message" class="text-slate-300 text-sm">Initializing verification...</p>
+        </div>
+
+        <!-- Agent Activity -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div id="agent-parser" class="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50">
+                <div class="text-2xl mb-2">📄</div>
+                <div class="text-slate-400">Parser</div>
+                <div class="text-slate-500 text-xs mt-1">Extracting citations...</div>
+            </div>
+            <div id="agent-crossref" class="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 opacity-50">
+                <div class="text-2xl mb-2">📚</div>
+                <div class="text-slate-400">CrossRef</div>
+                <div class="text-slate-500 text-xs mt-1">Waiting...</div>
+            </div>
+            <div id="agent-semantic" class="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 opacity-50">
+                <div class="text-2xl mb-2">🔬</div>
+                <div class="text-slate-400">Semantic Scholar</div>
+                <div class="text-slate-500 text-xs mt-1">Waiting...</div>
+            </div>
+            <div id="agent-unpaywall" class="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 opacity-50">
+                <div class="text-2xl mb-2">🔓</div>
+                <div class="text-slate-400">Unpaywall</div>
+                <div class="text-slate-500 text-xs mt-1">Waiting...</div>
+            </div>
+            <div id="agent-openlibrary" class="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 opacity-50">
+                <div class="text-2xl mb-2">📖</div>
+                <div class="text-slate-400">OpenLibrary</div>
+                <div class="text-slate-500 text-xs mt-1">Waiting...</div>
+            </div>
+            <div id="agent-analyst" class="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 opacity-50">
+                <div class="text-2xl mb-2">🤖</div>
+                <div class="text-slate-400">Analyst</div>
+                <div class="text-slate-500 text-xs mt-1">Waiting...</div>
+            </div>
+        </div>
+
+        <!-- Cancel Button -->
+        <div class="mt-8">
+            <a href="/" class="text-slate-500 hover:text-slate-300 transition-colors text-sm">
+                ← Cancel and return to home
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Task ID from URL
+        const taskId = window.location.pathname.split('/').pop();
+        let pollInterval;
+
+        // Status messages to cycle through
+        const statusMessages = [
+            "Parsing citations from your text...",
+            "Querying academic databases...",
+            "Checking DOIs with CrossRef...",
+            "Searching Semantic Scholar...",
+            "Looking for open access versions...",
+            "Analyzing content similarity...",
+            "Generating hallucination report..."
+        ];
+
+        let messageIndex = 0;
+        let progress = 0;
+
+        // Simulate progress (will be replaced with real polling in Phase 3)
+        function updateProgress() {
+            if (progress < 95) {
+                progress += Math.random() * 15;
+                progress = Math.min(progress, 95);
+            }
+
+            document.getElementById('progress-bar').style.width = progress + '%';
+            document.getElementById('progress-percent').textContent = Math.round(progress) + '%';
+
+            // Update status message
+            if (messageIndex < statusMessages.length) {
+                document.getElementById('status-message').textContent = statusMessages[messageIndex];
+                messageIndex++;
+            }
+
+            // Activate agents progressively
+            if (progress > 10) document.getElementById('agent-parser').classList.remove('opacity-50');
+            if (progress > 30) document.getElementById('agent-crossref').classList.remove('opacity-50');
+            if (progress > 40) document.getElementById('agent-semantic').classList.remove('opacity-50');
+            if (progress > 50) document.getElementById('agent-unpaywall').classList.remove('opacity-50');
+            if (progress > 60) document.getElementById('agent-openlibrary').classList.remove('opacity-50');
+            if (progress > 80) document.getElementById('agent-analyst').classList.remove('opacity-50');
+        }
+
+        // Poll the status endpoint (stub for now)
+        async function pollStatus() {
+            try {
+                const response = await fetch(`/status/${taskId}`);
+                const data = await response.json();
+
+                if (data.status === 'completed') {
+                    clearInterval(pollInterval);
+                    window.location.href = `/report/${taskId}`;
+                } else if (data.status === 'failed') {
+                    clearInterval(pollInterval);
+                    document.getElementById('status-message').textContent = 'Error: ' + (data.error || 'Verification failed');
+                }
+            } catch (error) {
+                console.error('Poll error:', error);
+            }
+        }
+
+        // Start polling and progress animation
+        pollInterval = setInterval(() => {
+            updateProgress();
+            pollStatus();
+        }, 2000);
+
+        // Initial update
+        updateProgress();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citation Verifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+    <div class="container mx-auto px-4 py-12 max-w-4xl">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1
+                class="text-5xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-4">
+                Citation Verifier
+            </h1>
+            <p class="text-slate-300 text-lg">
+                Detect hallucinations and verify academic citations with AI-powered multi-agent analysis
+            </p>
+        </header>
+
+        <!-- Main Form -->
+        <main>
+            <form action="/verify" method="POST" class="space-y-6">
+                <div class="relative">
+                    <textarea name="text" id="text-input" rows="12"
+                        placeholder="Paste your text containing citations here...
+
+Example: According to Smith et al. (2023), the study found significant results (doi:10.1234/example.2023). This aligns with previous research at https://example.org/data."
+                        class="w-full p-6 bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none transition-all"></textarea>
+                    <div class="absolute bottom-4 right-4 text-slate-500 text-sm">
+                        <span id="char-count">0</span> characters
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="flex flex-wrap gap-4 items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
+                            <input type="checkbox" name="use_llm" checked
+                                class="w-5 h-5 rounded bg-slate-700 border-slate-600 text-purple-500 focus:ring-purple-500">
+                            <span>Use LLM Analysis</span>
+                        </label>
+                    </div>
+
+                    <button type="submit"
+                        class="px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-semibold rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all transform hover:scale-105">
+                        🔍 Verify Citations
+                    </button>
+                </div>
+            </form>
+
+            <!-- Info Cards -->
+            <div class="grid md:grid-cols-3 gap-6 mt-12">
+                <div class="p-6 bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl">
+                    <div class="text-3xl mb-3">📚</div>
+                    <h3 class="text-lg font-semibold text-slate-200 mb-2">Multi-Source Verification</h3>
+                    <p class="text-slate-400 text-sm">CrossRef, Semantic Scholar, Unpaywall, and more</p>
+                </div>
+                <div class="p-6 bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl">
+                    <div class="text-3xl mb-3">🤖</div>
+                    <h3 class="text-lg font-semibold text-slate-200 mb-2">AI-Powered Analysis</h3>
+                    <p class="text-slate-400 text-sm">LLM semantic matching catches nuanced misrepresentations</p>
+                </div>
+                <div class="p-6 bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl">
+                    <div class="text-3xl mb-3">⚡</div>
+                    <h3 class="text-lg font-semibold text-slate-200 mb-2">Parallel Processing</h3>
+                    <p class="text-slate-400 text-sm">Multi-agent architecture for fast verification</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="mt-16 text-center text-slate-500 text-sm">
+            <p>Built for SanD Hacks 2026 | AGNTCY Track</p>
+        </footer>
+    </div>
+
+    <script>
+        // Character counter
+        const textInput = document.getElementById('text-input');
+        const charCount = document.getElementById('char-count');
+
+        textInput.addEventListener('input', () => {
+            charCount.textContent = textInput.value.length;
+        });
+    </script>
+</body>
+
+</html>
